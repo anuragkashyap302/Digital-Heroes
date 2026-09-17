@@ -56,6 +56,26 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use('/api/', apiLimiter);
 
+// Root Welcome Endpoint
+app.get('/', (req, res) => {
+  res.status(200).json({
+    status: 'online',
+    service: 'Digital Heroes Backend API Server',
+    version: '1.0.0',
+    documentation: 'Digital Heroes PRD Level 1 Implementation',
+    health: '/api/health',
+    endpoints: {
+      auth: '/api/auth',
+      scores: '/api/scores',
+      subscriptions: '/api/subscriptions',
+      charities: '/api/charities',
+      draws: '/api/draws',
+      winners: '/api/winners',
+      admin: '/api/admin'
+    }
+  });
+});
+
 // System Health Check Endpoint (PRD & Plan requirement)
 app.get('/api/health', async (req, res) => {
   let dbStatus = 'connected_mock';
