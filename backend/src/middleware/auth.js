@@ -22,17 +22,33 @@ export const authenticate = async (req, res, next) => {
         const { data: { user }, error } = await supabase.auth.getUser(token);
         if (!error && user) {
           // Query user profile from public.profiles
-          const { data: profile } = await supabase
+          let { data: profile } = await supabase
             .from('profiles')
             .select('*')
             .eq('id', user.id)
-            .single();
+            .maybeSingle();
+
+          if (!profile) {
+            const { data: autoProf } = await supabase
+              .from('profiles')
+              .upsert({
+                id: user.id,
+                email: user.email,
+                full_name: user.user_metadata?.full_name || 'Subscriber Hero',
+                role: 'subscriber',
+                handicap: 18.0,
+                charity_contribution_percent: 10.0
+              }, { onConflict: 'id' })
+              .select()
+              .maybeSingle();
+            profile = autoProf;
+          }
 
           req.user = {
             id: user.id,
             email: user.email,
             role: profile ? profile.role : 'subscriber',
-            full_name: profile ? profile.full_name : user.user_metadata?.full_name || 'Subscriber',
+            full_name: profile ? profile.full_name : user.user_metadata?.full_name || 'Subscriber Hero',
             handicap: profile ? profile.handicap : 18.0,
             selected_charity_id: profile ? profile.selected_charity_id : null,
             charity_contribution_percent: profile ? profile.charity_contribution_percent : 10.0

@@ -17,10 +17,10 @@ export class ScoreController {
 
   static async addScore(req, res, next) {
     try {
-      const userId = req.user.id;
+      const user = req.user;
       const { score, played_at, course_name, notes } = req.body;
 
-      const updatedScores = await ScoreService.addScore(userId, {
+      const updatedScores = await ScoreService.addScore(user, {
         score,
         played_at,
         course_name,

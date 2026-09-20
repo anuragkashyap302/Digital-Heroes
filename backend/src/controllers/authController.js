@@ -41,22 +41,33 @@ export class AuthController {
         const userId = authData.user.id;
 
         // Create Profile record linked to auth.users
-        const { data: profile, error: profileError } = await supabase
+        let profile = null;
+        const profilePayload = {
+          id: userId,
+          email,
+          full_name: full_name || 'Subscriber',
+          handicap: parseFloat(handicap) || 18.0,
+          role: 'subscriber',
+          selected_charity_id: selected_charity_id || null,
+          charity_contribution_percent: charityPercent
+        };
+
+        const { data: createdProf, error: profileError } = await supabase
           .from('profiles')
-          .insert({
-            id: userId,
-            email,
-            full_name: full_name || 'Subscriber',
-            handicap: parseFloat(handicap) || 18.0,
-            role: 'subscriber',
-            selected_charity_id: selected_charity_id || null,
-            charity_contribution_percent: charityPercent
-          })
+          .insert(profilePayload)
           .select()
           .single();
 
         if (profileError) {
-          console.warn('Profile creation note:', profileError.message);
+          console.warn('Initial profile creation retry with null charity:', profileError.message);
+          const { data: retryProf } = await supabase
+            .from('profiles')
+            .upsert({ ...profilePayload, selected_charity_id: null }, { onConflict: 'id' })
+            .select()
+            .single();
+          profile = retryProf;
+        } else {
+          profile = createdProf;
         }
 
         // Auto-provision initial active subscription membership
@@ -179,11 +190,28 @@ export class AuthController {
           return res.status(401).json({ success: false, message: 'Invalid email or password.' });
         }
 
-        const { data: profile } = await supabase
+        let { data: profile } = await supabase
           .from('profiles')
           .select('*')
           .eq('id', authData.user.id)
           .maybeSingle();
+
+        // Auto-heal missing profile in Supabase to ensure all Foreign Keys succeed
+        if (!profile) {
+          const { data: autoProfile } = await supabase
+            .from('profiles')
+            .upsert({
+              id: authData.user.id,
+              email: authData.user.email,
+              full_name: authData.user.user_metadata?.full_name || 'Subscriber Hero',
+              role: 'subscriber',
+              handicap: 18.0,
+              charity_contribution_percent: 10.0
+            }, { onConflict: 'id' })
+            .select()
+            .maybeSingle();
+          profile = autoProfile;
+        }
 
         return res.json({
           success: true,
@@ -193,7 +221,7 @@ export class AuthController {
             id: authData.user.id,
             email: authData.user.email,
             role: 'subscriber',
-            full_name: authData.user.user_metadata?.full_name || 'Subscriber'
+            full_name: authData.user.user_metadata?.full_name || 'Subscriber Hero'
           }
         });
       }
@@ -228,14 +256,30 @@ export class AuthController {
     try {
       const userId = req.user.id;
       const supabase = getSupabaseClient();
+      const isUuid = typeof userId === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userId);
 
       let profile = null;
       let subscription = null;
       let charity = null;
 
-      if (supabase && !isMockDatabase()) {
+      if (supabase && !isMockDatabase() && isUuid) {
         try {
-          const { data: p } = await supabase.from('profiles').select('*').eq('id', userId).maybeSingle();
+          let { data: p } = await supabase.from('profiles').select('*').eq('id', userId).maybeSingle();
+          if (!p) {
+            const { data: newP } = await supabase
+              .from('profiles')
+              .upsert({
+                id: userId,
+                email: req.user.email || 'subscriber@digitalheroes.io',
+                full_name: req.user.full_name || 'Subscriber Hero',
+                role: req.user.role || 'subscriber',
+                handicap: req.user.handicap || 18.0,
+                charity_contribution_percent: req.user.charity_contribution_percent || 10.0
+              }, { onConflict: 'id' })
+              .select()
+              .maybeSingle();
+            p = newP;
+          }
           profile = p || req.user;
           const { data: s } = await supabase.from('subscriptions').select('*').eq('user_id', userId).eq('is_current', true).maybeSingle();
           subscription = s;
