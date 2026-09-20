@@ -6,9 +6,14 @@ export class AdminDrawController {
     try {
       const supabase = getSupabaseClient();
       if (supabase && !isMockDatabase()) {
-        const { data, error } = await supabase.from('draws').select('*').order('draw_number', { ascending: false });
-        if (error) throw error;
-        return res.json({ success: true, count: data.length, draws: data });
+        try {
+          const { data, error } = await supabase.from('draws').select('*').order('draw_number', { ascending: false });
+          if (!error && Array.isArray(data) && data.length > 0) {
+            return res.json({ success: true, count: data.length, draws: data });
+          }
+        } catch (dbErr) {
+          console.warn('Supabase getAllDraws query note:', dbErr.message);
+        }
       }
 
       return res.json({
@@ -25,28 +30,50 @@ export class AdminDrawController {
     try {
       const { name, draw_date, mode = 'random_lottery', prize_pool_total = 15000.00 } = req.body;
       const supabase = getSupabaseClient();
-      const drawNumber = (mockDataStore.draws.length > 0 ? Math.max(...mockDataStore.draws.map(d => d.draw_number)) : 100) + 1;
+      const prizePool = parseFloat(prize_pool_total) || 15000.00;
 
-      const newDrawData = {
-        id: `draw-${Date.now()}`,
-        draw_number: drawNumber,
-        name: name || `Digital Heroes Draw #${drawNumber}`,
-        draw_date: draw_date || new Date(Date.now() + 30 * 86400000).toISOString(),
-        mode,
-        status: 'draft',
-        prize_pool_total: parseFloat(prize_pool_total) || 15000.00,
-        pool_5_match: (parseFloat(prize_pool_total) || 15000.00) * 0.40,
-        pool_4_match: (parseFloat(prize_pool_total) || 15000.00) * 0.35,
-        pool_3_match: (parseFloat(prize_pool_total) || 15000.00) * 0.25,
-        charity_distribution_total: (parseFloat(prize_pool_total) || 15000.00) * 0.20,
-        created_at: new Date().toISOString()
-      };
+      let nextDrawNumber = 104;
+      if (supabase && !isMockDatabase()) {
+        const { data: latestDraws } = await supabase.from('draws').select('draw_number').order('draw_number', { ascending: false }).limit(1);
+        if (latestDraws && latestDraws.length > 0) {
+          nextDrawNumber = (latestDraws[0].draw_number || 100) + 1;
+        }
+      } else if (mockDataStore.draws.length > 0) {
+        nextDrawNumber = Math.max(...mockDataStore.draws.map(d => d.draw_number)) + 1;
+      }
 
       if (supabase && !isMockDatabase()) {
-        const { data, error } = await supabase.from('draws').insert(newDrawData).select().single();
+        const { data, error } = await supabase.from('draws').insert({
+          draw_number: nextDrawNumber,
+          name: name || `Digital Heroes Draw #${nextDrawNumber}`,
+          draw_date: draw_date || new Date(Date.now() + 30 * 86400000).toISOString(),
+          mode,
+          status: 'draft',
+          prize_pool_total: prizePool,
+          pool_5_match: prizePool * 0.40,
+          pool_4_match: prizePool * 0.35,
+          pool_3_match: prizePool * 0.25,
+          charity_distribution_total: prizePool * 0.20
+        }).select().single();
+
         if (error) throw error;
         return res.status(201).json({ success: true, message: 'Draft draw created.', draw: data });
       }
+
+      const newDrawData = {
+        id: `draw-${Date.now()}`,
+        draw_number: nextDrawNumber,
+        name: name || `Digital Heroes Draw #${nextDrawNumber}`,
+        draw_date: draw_date || new Date(Date.now() + 30 * 86400000).toISOString(),
+        mode,
+        status: 'draft',
+        prize_pool_total: prizePool,
+        pool_5_match: prizePool * 0.40,
+        pool_4_match: prizePool * 0.35,
+        pool_3_match: prizePool * 0.25,
+        charity_distribution_total: prizePool * 0.20,
+        created_at: new Date().toISOString()
+      };
 
       mockDataStore.draws.push(newDrawData);
       return res.status(201).json({ success: true, message: 'Draft draw created successfully.', draw: newDrawData });

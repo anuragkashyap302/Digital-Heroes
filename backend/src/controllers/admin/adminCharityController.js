@@ -10,6 +10,27 @@ export class AdminCharityController {
       }
 
       const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
+      const supabase = getSupabaseClient();
+
+      if (supabase && !isMockDatabase()) {
+        const { data, error } = await supabase.from('charities').insert({
+          name,
+          slug,
+          category,
+          tagline: tagline || name,
+          description,
+          logo_url: logo_url || 'https://images.unsplash.com/photo-1593111774642-a164b58e7784?auto=format&fit=crop&w=400&q=80',
+          banner_url: banner_url || 'https://images.unsplash.com/photo-1535131749006-b7f58c99034b?auto=format&fit=crop&w=1200&q=80',
+          website_url: website_url || '',
+          total_raised: 0.00,
+          is_featured: !!is_featured,
+          upcoming_events: upcoming_events || []
+        }).select().single();
+
+        if (error) throw error;
+        return res.status(201).json({ success: true, message: 'Charity created successfully.', charity: data });
+      }
+
       const charityData = {
         id: `charity-${Date.now()}`,
         name,
@@ -26,13 +47,6 @@ export class AdminCharityController {
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       };
-
-      const supabase = getSupabaseClient();
-      if (supabase && !isMockDatabase()) {
-        const { data, error } = await supabase.from('charities').insert(charityData).select().single();
-        if (error) throw error;
-        return res.status(201).json({ success: true, message: 'Charity created successfully.', charity: data });
-      }
 
       mockDataStore.charities.push(charityData);
       return res.status(201).json({ success: true, message: 'Charity created successfully.', charity: charityData });
