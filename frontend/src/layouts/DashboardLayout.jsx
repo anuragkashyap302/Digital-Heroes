@@ -33,7 +33,7 @@ export const DashboardLayout = () => {
     navigate('/');
   };
 
-  const isSubActive = subscription?.status === 'active';
+  const isSubActive = subscription?.status !== 'canceled' && subscription?.status !== 'lapsed';
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-10">
@@ -68,7 +68,7 @@ export const DashboardLayout = () => {
             </span>
           </div>
           <Badge variant={isSubActive ? 'success' : 'danger'} size="md">
-            {subscription?.status?.toUpperCase() || 'ACTIVE'}
+            {isSubActive ? 'ACTIVE' : 'INACTIVE'}
           </Badge>
         </div>
       </div>

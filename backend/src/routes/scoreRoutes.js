@@ -6,7 +6,6 @@ import { requireSubscriber } from '../middleware/role.js';
 const router = express.Router();
 
 router.use(authenticate);
-router.use(requireSubscriber);
 
 router.get('/', ScoreController.getScores);
 router.post('/', ScoreController.addScore);

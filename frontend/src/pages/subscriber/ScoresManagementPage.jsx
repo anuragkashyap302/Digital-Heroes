@@ -44,13 +44,20 @@ export const ScoresManagementPage = () => {
     <div className="space-y-8">
       
       {/* Page Header */}
-      <div>
-        <h2 className="font-serif text-3xl font-bold text-ink">
-          Stableford Scores Management
-        </h2>
-        <p className="text-xs text-ink-muted mt-1">
-          Record, edit, and inspect your 5 retained Stableford golf scores forming your active monthly draw numbers.
-        </p>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h2 className="font-serif text-3xl font-bold text-ink">
+            Stableford Scores Management
+          </h2>
+          <p className="text-xs text-ink-muted mt-1">
+            Record, edit, and inspect your 5 retained Stableford golf scores forming your active monthly draw numbers.
+          </p>
+        </div>
+
+        <Badge variant="success" size="md" className="shrink-0 self-start sm:self-center py-1.5 px-3.5 gap-1.5">
+          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+          <span>Score Entry Unrestricted</span>
+        </Badge>
       </div>
 
       {loading ? (

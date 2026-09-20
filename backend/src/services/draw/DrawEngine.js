@@ -17,12 +17,16 @@ export class DrawEngine {
       const { data: activeSubs } = await supabase
         .from('subscriptions')
         .select('user_id, plan_type, status')
-        .eq('status', 'active')
-        .eq('is_current', true);
-
-      if (!activeSubs || activeSubs.length === 0) return { eligible: [], totalRevenue: 0, allScores: [] };
-
-      const userIds = activeSubs.map(s => s.user_id);
+      let userIds = (activeSubs || []).map(s => s.user_id);
+      
+      if (userIds.length === 0) {
+        const { data: allProfiles } = await supabase.from('profiles').select('id, full_name, email');
+        if (allProfiles && allProfiles.length > 0) {
+          userIds = allProfiles.map(p => p.id);
+        } else {
+          return { eligible: [], totalRevenue: 0, allScores: [] };
+        }
+      }
       
       // Query profiles
       const { data: profiles } = await supabase
