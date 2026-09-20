@@ -26,6 +26,7 @@ app.use(helmet({
 
 const allowedOrigins = [
   ENV.CLIENT_URL,
+  'https://digital-heroes-anurag.vercel.app',
   'http://localhost:5173',
   'http://127.0.0.1:5173',
   'http://localhost:3000'
